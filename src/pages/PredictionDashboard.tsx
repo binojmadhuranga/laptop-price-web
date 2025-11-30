@@ -4,6 +4,8 @@ import { Header } from '../components/layout/Header'
 import { InputField } from '../components/form/InputField'
 import { SelectField } from '../components/form/SelectField'
 import { SubmitButton } from '../components/form/SubmitButton'
+import { predictLaptopPrice } from '../services/api'
+import type { PredictionRequest } from '../types/PredictionRequest'
 
 interface LaptopData {
   ram: string
@@ -31,6 +33,8 @@ export const PredictionDashboard: React.FC = () => {
   })
 
   const [predictedPrice, setPredictedPrice] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const companyOptions = [
     { value: 'Asus', label: 'Asus' },
@@ -93,15 +97,39 @@ export const PredictionDashboard: React.FC = () => {
     }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsLoading(true)
+    setError(null)
     
-    // TODO: Implement API call to backend for prediction
-    console.log('Form Data:', formData)
-    
-    // Mock prediction for now
-    const mockPrice = Math.floor(Math.random() * 2000) + 500
-    setPredictedPrice(mockPrice)
+    try {
+      // Map form data to API request format
+      const requestData: PredictionRequest = {
+        ram: parseInt(formData.ram),
+        weight: parseFloat(formData.weight),
+        company: formData.company.toLowerCase(),
+        typename: formData.laptopType.toLowerCase().replace(' ', ''),
+        opsys: formData.os.toLowerCase().replace(/\s+/g, ''),
+        cpu: formData.cpu.toLowerCase(),
+        gpu: formData.gpu.toLowerCase(),
+        touchscreen: formData.touchscreen === 'Yes' ? 1 : 0,
+        ips: formData.ips === 'Yes' ? 1 : 0
+      }
+      
+      console.log('Request Data:', requestData)
+      
+      const response = await predictLaptopPrice(requestData)
+      
+      if (response.success && response.prediction) {
+        setPredictedPrice(response.prediction)
+      } else {
+        setError(response.error || 'Failed to get prediction')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleReset = () => {
@@ -117,6 +145,7 @@ export const PredictionDashboard: React.FC = () => {
       gpu: ''
     })
     setPredictedPrice(null)
+    setError(null)
   }
 
   return (
@@ -237,8 +266,8 @@ export const PredictionDashboard: React.FC = () => {
                   </div>
 
                   <div className='flex gap-4 pt-4'>
-                    <SubmitButton type='submit'>
-                      Predict Price
+                    <SubmitButton type='submit' disabled={isLoading}>
+                      {isLoading ? 'Predicting...' : 'Predict Price'}
                     </SubmitButton>
                     <button
                       type='button'
@@ -255,11 +284,24 @@ export const PredictionDashboard: React.FC = () => {
             {/* Prediction Result Section */}
             <div className='lg:col-span-1'>
               <div className='sticky p-8 bg-white shadow-xl rounded-2xl top-8'>
-                <h2 className='mb-6 text-2xl font-semibold text-gray-800'>
+                <h2 className='text-2xl font-semibold text-gray-800 mb-6'>
                   Price Prediction
                 </h2>
                 
-                {predictedPrice !== null ? (
+                {error && (
+                  <div className='mb-4 p-4 bg-red-50 border border-red-200 rounded-lg'>
+                    <p className='text-sm text-red-800'>
+                      <span className='font-semibold'>Error:</span> {error}
+                    </p>
+                  </div>
+                )}
+                
+                {isLoading ? (
+                  <div className='text-center py-12'>
+                    <div className='w-16 h-16 mx-auto mb-4 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin'></div>
+                    <p className='text-gray-600'>Calculating price...</p>
+                  </div>
+                ) : predictedPrice !== null ? (
                   <div className='space-y-4'>
                     <div className='p-6 text-white rounded-lg bg-linear-to-br from-indigo-500 to-purple-600'>
                       <p className='mb-2 text-sm tracking-wide uppercase'>Estimated Price</p>
