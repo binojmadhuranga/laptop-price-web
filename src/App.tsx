@@ -1,7 +1,7 @@
+import { PredictionDashboard } from './pages/PredictionDashboard'
+
 function App() {
-  return (
-    <div className='bg-red-500'>App</div>
-  )
+  return <PredictionDashboard />
 }
   
 export default App
